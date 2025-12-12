@@ -16,7 +16,7 @@ st.write("Analyze stocks, crypto, forex, commodities, and ETFs.")
 # ------------------- Tickers -------------------
 tickers = {
     "stocks": [
-        "AAPL", "MSFT", "AMZN", "GOOGL", "GOOG", "META", "TSLA", "NVDA", "AMD", "NFLX",
+        "AAPL", "MSFT", "AMZN", "GOOGL", "META", "TSLA", "NVDA", "AMD", "NFLX",
         "JPM", "BAC", "V", "MA", "WMT", "KO", "PEP", "DIS", "HD", "PG", "JNJ", "UNH",
         "PFE", "MRK", "LLY", "ABBV", "CVX", "XOM", "BP", "TMUS", "VZ", "T", "ORCL",
         "IBM", "INTC", "CSCO", "ADBE", "CRM", "PYPL", "QCOM", "TXN", "SQ", "SHOP",
@@ -79,9 +79,14 @@ if analyze:
 
     data = get_data(symbol, start_date, end_date)
 
+    # ---------------- Check if data is empty ----------------
     if data.empty:
         st.error("❌ No data found for this symbol in the selected date range.")
         st.stop()
+
+    # ---------------- Flatten MultiIndex columns ----------------
+    if isinstance(data.columns, pd.MultiIndex):
+        data.columns = data.columns.get_level_values(0)
 
     # ---------------- Closing Price ----------------
     st.subheader(f"📌 {symbol} Closing Price")
@@ -93,6 +98,14 @@ if analyze:
 
     st.subheader("📊 Moving Averages (50 & 200 Days)")
     st.line_chart(data[["Close", "SMA_50", "SMA_200"]].dropna())
+
+    # ---------------- SMA-based Buy/Sell Signal ----------------
+    if data["SMA_50"].iloc[-1] > data["SMA_200"].iloc[-1]:
+        st.success("✅ Potential Buy Signal: SMA 50 is above SMA 200")
+    elif data["SMA_50"].iloc[-1] < data["SMA_200"].iloc[-1]:
+        st.warning("⚠️ Potential Sell Signal: SMA 50 is below SMA 200")
+    else:
+        st.info("ℹ️ No clear SMA crossover signal at the moment")
 
     # ---------------- Daily Returns ----------------
     data["Daily Return"] = data["Close"].pct_change()
@@ -119,6 +132,12 @@ if analyze:
     data["RSI"] = rsi.rsi()
     st.line_chart(data["RSI"].dropna())
     st.caption("Overbought > 70, Oversold < 30")
+
+    # ---------------- RSI-based Caution/Buy Signal ----------------
+    if data["RSI"].iloc[-1] > 70:
+        st.warning("⚠️ RSI indicates overbought — potential caution for buying")
+    elif data["RSI"].iloc[-1] < 30:
+        st.success("✅ RSI indicates oversold — potential buying opportunity")
 
     # ---------------- Candlestick ----------------
     st.subheader("🕯️ Candlestick Chart")
