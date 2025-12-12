@@ -87,7 +87,7 @@ if analyze:
     data = flatten_columns(data)
 
     # ---------------- Limit rows to avoid freezing ----------------
-    max_rows = st.slider("Max rows to analyze", 1000, 10000, 2000)
+    max_rows = st.slider("Max rows to analyze", 1000, 10000, 2000, key="rows_slider")
     data = data.tail(max_rows)
 
     if data.empty:
@@ -185,3 +185,4 @@ if analyze:
     plt.close('all')
 
     st.success("✅ Analysis complete!")
+
