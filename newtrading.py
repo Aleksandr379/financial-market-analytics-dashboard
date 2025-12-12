@@ -50,14 +50,27 @@ if info.empty:
     st.stop()
 
 earliest_date = pd.to_datetime(info.index.min()).date()
-
 # ------------------- Date selection -------------------
 col1, col2 = st.columns(2)
+
 with col1:
-    user_start_date = st.date_input("Start Date", earliest_date)
-    start_date = max(user_start_date, earliest_date)  # Prevent selecting unavailable data
+    user_start_date = st.date_input(
+        "Start Date",
+        value=earliest_date,
+        min_value=pd.to_datetime("1900-01-01").date(),
+        max_value=pd.to_datetime("today").date()
+    )
+
 with col2:
-    end_date = st.date_input("End Date", pd.to_datetime("today").date())
+    end_date = st.date_input(
+        "End Date",
+        value=pd.to_datetime("today").date(),
+        min_value=pd.to_datetime("1900-01-01").date(),
+        max_value=pd.to_datetime("today").date()
+    )
+
+# Prevent selecting dates before actual trading history
+start_date = max(user_start_date, earliest_date)
 
 if start_date >= end_date:
     st.error("❌ Start date must be earlier than the end date.")
@@ -185,4 +198,5 @@ if analyze:
     plt.close('all')
 
     st.success("✅ Analysis complete!")
+
 
