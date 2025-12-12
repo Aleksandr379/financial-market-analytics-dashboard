@@ -86,8 +86,7 @@ if analyze:
 
     # ---------------- Flatten MultiIndex columns ----------------
     if isinstance(data.columns, pd.MultiIndex):
-        data.columns = data.columns.get_level_values(0)
-
+        data.columns = [c[0] for c in data.columns]
     # ---------------- Closing Price ----------------
     st.subheader(f"📌 {symbol} Closing Price")
     st.line_chart(data["Close"])
@@ -100,13 +99,13 @@ if analyze:
     st.line_chart(data[["Close", "SMA_50", "SMA_200"]].dropna())
 
     # ---------------- SMA-based Buy/Sell Signal ----------------
-    if data["SMA_50"].iloc[-1] > data["SMA_200"].iloc[-1]:
-        st.success("✅ Potential Buy Signal: SMA 50 is above SMA 200")
-    elif data["SMA_50"].iloc[-1] < data["SMA_200"].iloc[-1]:
-        st.warning("⚠️ Potential Sell Signal: SMA 50 is below SMA 200")
+    if data["SMA_50"].notna().iloc[-1] and data["SMA_200"].notna().iloc[-1]:
+        if data["SMA_50"].iloc[-1] > data["SMA_200"].iloc[-1]:
+            st.success("✅ Potential Buy Signal: SMA 50 is above SMA 200")
+        elif data["SMA_50"].iloc[-1] < data["SMA_200"].iloc[-1]:
+            st.warning("⚠️ Potential Sell Signal: SMA 50 is below SMA 200")
     else:
-        st.info("ℹ️ No clear SMA crossover signal at the moment")
-
+        st.info("ℹ️ Not enough data to generate SMA signals")
     # ---------------- Daily Returns ----------------
     data["Daily Return"] = data["Close"].pct_change()
 
@@ -134,15 +133,20 @@ if analyze:
     st.caption("Overbought > 70, Oversold < 30")
 
     # ---------------- RSI-based Caution/Buy Signal ----------------
-    if data["RSI"].iloc[-1] > 70:
-        st.warning("⚠️ RSI indicates overbought — potential caution for buying")
-    elif data["RSI"].iloc[-1] < 30:
-        st.success("✅ RSI indicates oversold — potential buying opportunity")
-
+    if data["RSI"].notna().iloc[-1]:
+        if data["RSI"].iloc[-1] > 70:
+            st.warning("⚠️ RSI indicates overbought — potential caution for buying")
+        elif data["RSI"].iloc[-1] < 30:
+            st.success("✅ RSI indicates oversold — potential buying opportunity")
+        else:
+            st.info("ℹ️ RSI in neutral range — no immediate signal")
+    else:
+        st.info("ℹ️ Not enough data to compute RSI signal")
     # ---------------- Candlestick ----------------
     st.subheader("🕯️ Candlestick Chart")
     days = st.slider("Number of Days for Candlestick Chart", 30, 365, 100)
     mpf_data = data[-days:]
+    mpf_data = mpf_data[['Open','High','Low','Close','Volume']]
 
     # Version-safe mplfinance rendering
     try:
@@ -173,3 +177,4 @@ if analyze:
     plt.close('all')
 
     st.success("✅ Analysis complete!")
+
