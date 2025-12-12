@@ -54,7 +54,8 @@ earliest_date = pd.to_datetime(info.index.min()).date()
 # ------------------- Date selection -------------------
 col1, col2 = st.columns(2)
 with col1:
-    start_date = st.date_input("Start Date", earliest_date)
+    user_start_date = st.date_input("Start Date", earliest_date)
+    start_date = max(user_start_date, earliest_date)  # Prevent selecting unavailable data
 with col2:
     end_date = st.date_input("End Date", pd.to_datetime("today").date())
 
@@ -85,7 +86,9 @@ if analyze:
     data = get_data(symbol, start_date, end_date)
     data = flatten_columns(data)
 
-    data = data.tail(8000) 
+    # ---------------- Limit rows to avoid freezing ----------------
+    max_rows = st.slider("Max rows to analyze", 1000, 10000, 2000)
+    data = data.tail(max_rows)
 
     if data.empty:
         st.error("❌ No data found for this symbol in the selected date range.")
@@ -182,5 +185,3 @@ if analyze:
     plt.close('all')
 
     st.success("✅ Analysis complete!")
-
-
