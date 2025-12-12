@@ -86,7 +86,8 @@ if analyze:
 
     # ---------------- Flatten MultiIndex columns ----------------
     if isinstance(data.columns, pd.MultiIndex):
-        data.columns = [c[0] for c in data.columns]
+        data.columns = [c[0] if c[0] else c[1] for c in data.columns]
+    data.columns = [str(col).strip() for col in data.columns]
     # ---------------- Closing Price ----------------
     st.subheader(f"📌 {symbol} Closing Price")
     st.line_chart(data["Close"])
@@ -177,4 +178,5 @@ if analyze:
     plt.close('all')
 
     st.success("✅ Analysis complete!")
+
 
