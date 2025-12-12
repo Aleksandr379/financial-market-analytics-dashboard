@@ -85,6 +85,8 @@ if analyze:
     data = get_data(symbol, start_date, end_date)
     data = flatten_columns(data)
 
+    data = data.tail(2000) 
+
     if data.empty:
         st.error("❌ No data found for this symbol in the selected date range.")
         st.stop()
@@ -180,3 +182,4 @@ if analyze:
     plt.close('all')
 
     st.success("✅ Analysis complete!")
+
