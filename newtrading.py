@@ -4,7 +4,6 @@ import pandas as pd
 from datetime import timedelta
 import matplotlib.pyplot as plt
 import seaborn as sns
-import mplfinance as mpf
 from ta.momentum import RSIIndicator
 
 # Set Seaborn style
@@ -161,3 +160,4 @@ if analyze:
             st.info("ℹ️ RSI in neutral range — no immediate signal")
 
     st.success("✅ Analysis complete!")
+
