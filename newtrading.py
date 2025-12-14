@@ -96,6 +96,23 @@ def get_data(symbol, start, end):
     data = yf.download(symbol, start=start, end=end, progress=False)
     return data.dropna()
 
+# ------------------- Cached indicator calculator -------------------
+@st.cache_data(ttl=3600)
+def get_indicators(data):
+    data["SMA_50"] = data["Close"].rolling(50).mean()
+    data["SMA_200"] = data["Close"].rolling(200).mean()
+    data["Daily Return"] = data["Close"].pct_change()
+    data["RSI"] = RSIIndicator(data["Close"], window=14).rsi()
+    return data
+
+def support_resistance(data, window=20):
+    """
+    Calculate simple support and resistance levels using rolling highs/lows.
+    """
+    data["Support"] = data["Low"].rolling(window=window).min()
+    data["Resistance"] = data["High"].rolling(window=window).max()
+    return data
+
 # ------------------- Flatten MultiIndex columns -------------------
 def flatten_columns(df):
     if isinstance(df.columns, pd.MultiIndex):
@@ -105,21 +122,16 @@ def flatten_columns(df):
 
 # ------------------- Analyze Button -------------------
 analyze = st.button("🔍 Analyze")
-
 if analyze:
     data = get_data(symbol, start_date, end_date)
     data = flatten_columns(data)
 
-    # Keep full data for indicators
-    full_data = data.copy()
+    # Calculate indicators
+    full_data = get_indicators(data)
 
     # ---------------- Closing Price ----------------
     st.subheader(f"📌 {symbol} Closing Price")
     st.line_chart(full_data["Close"])
-
-    # ---------------- Moving Averages ----------------
-    full_data["SMA_50"] = full_data["Close"].rolling(window=50, min_periods=1).mean()
-    full_data["SMA_200"] = full_data["Close"].rolling(window=200, min_periods=1).mean()
 
     st.subheader("📊 Moving Averages (50 & 200 Days)")
     st.line_chart(full_data[["Close", "SMA_50", "SMA_200"]])
@@ -137,19 +149,14 @@ if analyze:
         st.info("ℹ️ Not enough data to generate SMA signals")
 
     # ---------------- Volatility ----------------
-    full_data["Daily Return"] = full_data["Close"].pct_change()
     volatility = full_data["Daily Return"].std() * (252 ** 0.5)
-
     st.subheader("📌 Annual Volatility")
     st.write(f"**{volatility:.2%}**")
 
     # ---------------- RSI ----------------
     st.subheader("🔁 Relative Strength Index (RSI)")
-    rsi = RSIIndicator(full_data["Close"], window=14)
-    full_data["RSI"] = rsi.rsi()
     st.line_chart(full_data["RSI"].dropna())
 
-    # Safely access last RSI value
     if not full_data["RSI"].dropna().empty:
         last_rsi = full_data["RSI"].iloc[-1]
         if last_rsi > 70:
@@ -159,5 +166,27 @@ if analyze:
         else:
             st.info("ℹ️ RSI in neutral range — no immediate signal")
 
-    st.success("✅ Analysis complete!")
+    # ---------------- Add Support & Resistance Button ----------------
+    add_sr = st.button("➕ Add Support and Resistance Levels")
+    if add_sr:
+        st.subheader("🛡 Support & Resistance Levels")
+        windows = [20, 50, 100]
+        chart_data = full_data[["Close"]].copy()
 
+        for w in windows:
+            chart_data[f"Support_{w}"] = full_data["Low"].rolling(w).min()
+            chart_data[f"Resistance_{w}"] = full_data["High"].rolling(w).max()
+
+         # Using Matplotlib for clearer plotting
+        plt.figure(figsize=(12,6))
+        plt.plot(chart_data["Close"], label="Close", color="black")
+        colors = ["green", "red", "blue"]
+        for i, w in enumerate(windows):
+            plt.plot(chart_data[f"Support_{w}"], label=f"Support {w}d", linestyle="--", color=colors[i])
+            plt.plot(chart_data[f"Resistance_{w}"], label=f"Resistance {w}d", linestyle="--", color=colors[i], alpha=0.7)
+        plt.legend()
+        plt.title(f"{symbol} Closing Price with Support & Resistance")
+        plt.xlabel("Date")
+        plt.ylabel("Price")
+        st.pyplot(plt)
+    st.success("✅ Analysis complete!")
