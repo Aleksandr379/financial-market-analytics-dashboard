@@ -1,15 +1,17 @@
 import streamlit as st
 import yfinance as yf
 import pandas as pd
+from datetime import timedelta
 import matplotlib.pyplot as plt
 import seaborn as sns
 import mplfinance as mpf
 from ta.momentum import RSIIndicator
 
+# Set Seaborn style
 sns.set(style="whitegrid")
 
+# Streamlit page config
 st.set_page_config(page_title="Financial Analytics Dashboard", layout="wide")
-
 st.title("📈 Financial Market Analytics Dashboard")
 st.write("Analyze stocks, crypto, forex, commodities, and ETFs.")
 
@@ -24,9 +26,11 @@ tickers = {
         "OKTA", "ZS", "DDOG", "MDB", "NET", "EA", "ATVI", "DKNG", "RBLX", "BYND",
         "TGT", "COST", "LOW", "NKE", "SBUX", "MCD", "YUM", "LULU"
     ],
-    "etfs": ["SPY", "QQQ", "VOO", "IWM", "DIA", "XLK", "XLE", "XLF", "XLY", "XLP",
-             "XLV", "XLC", "XLI", "XLB", "XLRE", "ARKK", "ARKG", "ARKQ", "ARKW",
-             "ARKF", "TLT", "HYG", "LQD", "EEM", "EFA", "VNQ", "GLD", "SLV", "USO", "UNG"],
+    "etfs": [
+        "SPY", "QQQ", "VOO", "IWM", "DIA", "XLK", "XLE", "XLF", "XLY", "XLP",
+        "XLV", "XLC", "XLI", "XLB", "XLRE", "ARKK", "ARKG", "ARKQ", "ARKW",
+        "ARKF", "TLT", "HYG", "LQD", "EEM", "EFA", "VNQ", "GLD", "SLV", "USO", "UNG"
+    ],
     "crypto": ["BTC-USD", "ETH-USD", "SOL-USD", "XRP-USD", "ADA-USD", "DOGE-USD",
                "BNB-USD", "AVAX-USD", "DOT-USD", "MATIC-USD"],
     "forex": ["EURUSD=X", "GBPUSD=X", "USDJPY=X", "AUDUSD=X",
@@ -35,7 +39,6 @@ tickers = {
                     "KC=F", "SB=F", "LE=F", "HE=F"],
     "indices": ["^GSPC", "^DJI", "^IXIC", "^RUT", "^FTSE", "^N225", "^HSI"]
 }
-
 # ------------------- UI -------------------
 col1, col2 = st.columns(2)
 with col1:
@@ -60,7 +63,6 @@ with col1:
         min_value=pd.to_datetime("1900-01-01").date(),
         max_value=pd.to_datetime("today").date()
     )
-
 with col2:
     end_date = st.date_input(
         "End Date",
@@ -68,13 +70,26 @@ with col2:
         min_value=pd.to_datetime("1900-01-01").date(),
         max_value=pd.to_datetime("today").date()
     )
-
 # Prevent selecting dates before actual trading history
-start_date = max(user_start_date, earliest_date)
-
-if start_date >= end_date:
+if user_start_date >= end_date:
     st.error("❌ Start date must be earlier than the end date.")
     st.stop()
+
+# Maximum allowed range in days (10 years)
+max_range_days = 365 * 10
+allowed_start_date = end_date - timedelta(days = max_range_days)
+
+# Final start date considering earliest available date and 10-year limit
+start_date = max(user_start_date, earliest_date, allowed_start_date)
+
+# Adjust start_date if the range exceeds 10 years
+if start_date > user_start_date:
+    st.warning(
+        f"⚠️ Date range limited to 10 years for performance. Start date adjusted to {start_date}."
+    )
+
+# Inform the user of the selected date range (adjusted or not)
+st.info(f"Selected date range: {start_date} to {end_date}")
 
 # ------------------- Cached downloader -------------------
 @st.cache_data(ttl=3600)
@@ -92,36 +107,23 @@ def flatten_columns(df):
 # ------------------- Analyze Button -------------------
 analyze = st.button("🔍 Analyze")
 
-# ------------------------------------------------------
-#                   MAIN ANALYSIS
-# ------------------------------------------------------
 if analyze:
     data = get_data(symbol, start_date, end_date)
     data = flatten_columns(data)
 
-    # ---------------- Limit rows (optimized version) ----------------
-    max_rows = st.slider("Max rows to analyze", 1000, 10000, 2000, key="rows_slider")
-
     # Keep full data for indicators
     full_data = data.copy()
 
-    # Only use row limit for CHARTS
-    chart_data = full_data.tail(max_rows)
-
-    if chart_data.empty:
-        st.error("❌ No data found for this symbol in the selected date range.")
-        st.stop()
-
     # ---------------- Closing Price ----------------
     st.subheader(f"📌 {symbol} Closing Price")
-    st.line_chart(chart_data["Close"])
+    st.line_chart(full_data["Close"])
 
     # ---------------- Moving Averages ----------------
     full_data["SMA_50"] = full_data["Close"].rolling(window=50, min_periods=1).mean()
     full_data["SMA_200"] = full_data["Close"].rolling(window=200, min_periods=1).mean()
 
     st.subheader("📊 Moving Averages (50 & 200 Days)")
-    st.line_chart(full_data[["Close", "SMA_50", "SMA_200"]].tail(max_rows))
+    st.line_chart(full_data[["Close", "SMA_50", "SMA_200"]])
 
     # ---------------- SMA-based Buy/Sell Signal ----------------
     last50 = full_data["SMA_50"].iloc[-1]
@@ -146,7 +148,7 @@ if analyze:
     st.subheader("🔁 Relative Strength Index (RSI)")
     rsi = RSIIndicator(full_data["Close"], window=14)
     full_data["RSI"] = rsi.rsi()
-    st.line_chart(full_data["RSI"].dropna().tail(max_rows))
+    st.line_chart(full_data["RSI"].dropna())
 
     # Safely access last RSI value
     if not full_data["RSI"].dropna().empty:
