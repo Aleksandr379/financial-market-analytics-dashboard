@@ -14,9 +14,13 @@ st.set_page_config(page_title="Financial Analytics Dashboard", layout="wide")
 st.title("📈 Financial Market Analytics Dashboard")
 st.write("Analyze stocks, crypto, forex, commodities, and ETFs.")
 
+# ------------------- Session State -------------------
+if "analyzed" not in st.session_state:
+    st.session_state.analyzed = False
+
 # ------------------- Tickers -------------------
 tickers = {
-    "stocks": [
+    "Stocks": [
         "AAPL", "MSFT", "AMZN", "GOOGL", "META", "TSLA", "NVDA", "AMD", "NFLX",
         "JPM", "BAC", "V", "MA", "WMT", "KO", "PEP", "DIS", "HD", "PG", "JNJ", "UNH",
         "PFE", "MRK", "LLY", "ABBV", "CVX", "XOM", "BP", "TMUS", "VZ", "T", "ORCL",
@@ -25,18 +29,18 @@ tickers = {
         "OKTA", "ZS", "DDOG", "MDB", "NET", "EA", "ATVI", "DKNG", "RBLX", "BYND",
         "TGT", "COST", "LOW", "NKE", "SBUX", "MCD", "YUM", "LULU"
     ],
-    "etfs": [
+    "ETFs": [
         "SPY", "QQQ", "VOO", "IWM", "DIA", "XLK", "XLE", "XLF", "XLY", "XLP",
         "XLV", "XLC", "XLI", "XLB", "XLRE", "ARKK", "ARKG", "ARKQ", "ARKW",
         "ARKF", "TLT", "HYG", "LQD", "EEM", "EFA", "VNQ", "GLD", "SLV", "USO", "UNG"
     ],
-    "crypto": ["BTC-USD", "ETH-USD", "SOL-USD", "XRP-USD", "ADA-USD", "DOGE-USD",
+    "Crypto": ["BTC-USD", "ETH-USD", "SOL-USD", "XRP-USD", "ADA-USD", "DOGE-USD",
                "BNB-USD", "AVAX-USD", "DOT-USD", "MATIC-USD"],
-    "forex": ["EURUSD=X", "GBPUSD=X", "USDJPY=X", "AUDUSD=X",
+    "Forex": ["EURUSD=X", "GBPUSD=X", "USDJPY=X", "AUDUSD=X",
               "NZDUSD=X", "USDCAD=X", "USDCHF=X", "EURGBP=X", "EURJPY=X"],
-    "commodities": ["GC=F", "SI=F", "CL=F", "NG=F", "HG=F", "ZC=F", "ZW=F", "ZS=F",
+    "Commodities": ["GC=F", "SI=F", "CL=F", "NG=F", "HG=F", "ZC=F", "ZW=F", "ZS=F",
                     "KC=F", "SB=F", "LE=F", "HE=F"],
-    "indices": ["^GSPC", "^DJI", "^IXIC", "^RUT", "^FTSE", "^N225", "^HSI"]
+    "Indices": ["^GSPC", "^DJI", "^IXIC", "^RUT", "^FTSE", "^N225", "^HSI"]
 }
 # ------------------- UI -------------------
 col1, col2 = st.columns(2)
@@ -105,14 +109,6 @@ def get_indicators(data):
     data["RSI"] = RSIIndicator(data["Close"], window=14).rsi()
     return data
 
-def support_resistance(data, window=20):
-    """
-    Calculate simple support and resistance levels using rolling highs/lows.
-    """
-    data["Support"] = data["Low"].rolling(window=window).min()
-    data["Resistance"] = data["High"].rolling(window=window).max()
-    return data
-
 # ------------------- Flatten MultiIndex columns -------------------
 def flatten_columns(df):
     if isinstance(df.columns, pd.MultiIndex):
@@ -120,26 +116,51 @@ def flatten_columns(df):
     df.columns = [str(col).strip() for col in df.columns]
     return df
 
-# ------------------- Analyze Button -------------------
-analyze = st.button("🔍 Analyze")
-if analyze:
+# ---------------- Analyze Button ----------------
+if st.button("🔍 Analyze"):
+    st.session_state.analyzed = True
+    st.experimental_rerun()
+
+# ---------------- Analysis ----------------
+if st.session_state.analyzed:
     data = get_data(symbol, start_date, end_date)
     data = flatten_columns(data)
-
-    # Calculate indicators
     full_data = get_indicators(data)
 
-    # ---------------- Closing Price ----------------
+    # ------------------- Close Price + Support & Resistance -------------------
     st.subheader(f"📌 {symbol} Closing Price")
-    st.line_chart(full_data["Close"])
 
+    show_sr = st.checkbox("🛡 Show Support & Resistance", value=True)
+
+    plt.figure(figsize=(12, 6))
+    plt.plot(full_data["Close"], label="Close", color="#000000", linewidth=2.2)
+
+    if show_sr:
+        windows = [20, 50, 100]
+        support_colors = ["#F59E0B", "#EA580C", "#B45309"]
+        resistance_colors = ["#92400E", "#78350F", "#1C1917"]
+
+        for i, w in enumerate(windows):
+            support = full_data["Low"].rolling(w).min()
+            resistance = full_data["High"].rolling(w).max()
+
+            plt.plot(support, "--", color=support_colors[i], linewidth=1.6, label=f"Support {w}d")
+            plt.plot(resistance, ":", color=resistance_colors[i], linewidth=1.9, label=f"Resistance {w}d")
+
+    plt.legend()
+    plt.xlabel("Date")
+    plt.ylabel("Price")
+    st.pyplot(plt)
+    plt.close()
+
+    # ---------------- Moving Averages ----------------
     st.subheader("📊 Moving Averages (50 & 200 Days)")
     st.line_chart(full_data[["Close", "SMA_50", "SMA_200"]])
 
     # ---------------- SMA-based Buy/Sell Signal ----------------
     last50 = full_data["SMA_50"].iloc[-1]
     last200 = full_data["SMA_200"].iloc[-1]
-
+    
     if pd.notna(last50) and pd.notna(last200):
         if last50 > last200:
             st.success("✅ Potential Buy Signal: SMA 50 is above SMA 200")
@@ -166,27 +187,5 @@ if analyze:
         else:
             st.info("ℹ️ RSI in neutral range — no immediate signal")
 
-    # ---------------- Add Support & Resistance Button ----------------
-    add_sr = st.button("➕ Add Support and Resistance Levels")
-    if add_sr:
-        st.subheader("🛡 Support & Resistance Levels")
-        windows = [20, 50, 100]
-        chart_data = full_data[["Close"]].copy()
-
-        for w in windows:
-            chart_data[f"Support_{w}"] = full_data["Low"].rolling(w).min()
-            chart_data[f"Resistance_{w}"] = full_data["High"].rolling(w).max()
-
-         # Using Matplotlib for clearer plotting
-        plt.figure(figsize=(12,6))
-        plt.plot(chart_data["Close"], label="Close", color="black")
-        colors = ["green", "red", "blue"]
-        for i, w in enumerate(windows):
-            plt.plot(chart_data[f"Support_{w}"], label=f"Support {w}d", linestyle="--", color=colors[i])
-            plt.plot(chart_data[f"Resistance_{w}"], label=f"Resistance {w}d", linestyle="--", color=colors[i], alpha=0.7)
-        plt.legend()
-        plt.title(f"{symbol} Closing Price with Support & Resistance")
-        plt.xlabel("Date")
-        plt.ylabel("Price")
-        st.pyplot(plt)
+    
     st.success("✅ Analysis complete!")
