@@ -109,6 +109,11 @@ def get_indicators(data):
     data["RSI"] = RSIIndicator(data["Close"], window=14).rsi()
     return data
 
+# ------------------- Cached fundamentals fetcher -------------------
+@st.cache_data(ttl=3600)
+def get_fundamentals(symbol):
+    return yf.Ticker(symbol).info
+
 # ------------------- Flatten MultiIndex columns -------------------
 def flatten_columns(df):
     if isinstance(df.columns, pd.MultiIndex):
@@ -187,5 +192,29 @@ if st.session_state.analyzed:
         else:
             st.info("ℹ️ RSI in neutral range — no immediate signal")
 
+     # ---------------- Fundamentals (Stocks/ETFs Only) ----------------
+    if category == "Stocks":
+        st.subheader(f"📊 {symbol} Fundamentals")
+        try:
+            ticker_info = get_fundamentals(symbol)
+            
+            market_cap = ticker_info.get("marketCap", "N/A")
+            pe_ratio = ticker_info.get("trailingPE", "N/A")
+            pb_ratio = ticker_info.get("priceToBook", "N/A")
+            eps = ticker_info.get("trailingEps", "N/A")
+            dividend_yield = ticker_info.get("dividendYield", "N/A")
+
+           # Display metrics safely
+            st.write(f"**Market Cap:** {market_cap:,}" if pd.notna(market_cap) else "**Market Cap:** N/A")
+            st.write(f"**P/E Ratio:** {pe_ratio}" if pd.notna(pe_ratio) else "**P/E Ratio:** N/A")
+            st.write(f"**P/B Ratio:** {pb_ratio}" if pd.notna(pb_ratio) else "**P/B Ratio:** N/A")
+            st.write(f"**EPS:** {eps}" if pd.notna(eps) else "**EPS:** N/A")
+            st.write(f"**Dividend Yield:** {dividend_yield:.2%}" if pd.notna(dividend_yield) else "**Dividend Yield:** N/A")
+        except Exception as e:
+            st.warning(f"⚠️ Unable to fetch fundamentals: {e}")
+    else:
+        st.info("ℹ️ Fundamental metrics are only available for stocks.")
+
     
-    st.success("✅ Analysis complete!")
+st.success("✅ Analysis complete!")
+
