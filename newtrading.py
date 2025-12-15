@@ -130,33 +130,24 @@ if st.session_state.analyzed:
     data = get_data(symbol, start_date, end_date)
     data = flatten_columns(data)
     full_data = get_indicators(data)
-
-    # ------------------- Close Price + Support & Resistance -------------------
+    
+    # ------------------- Close Price -------------------
     st.subheader(f"📌 {symbol} Closing Price")
+    st.line_chart(full_data["Close"])
 
-    show_sr = st.checkbox("🛡 Show Support & Resistance", value=True)
+    # ------------------- Support & Resistance Table -------------------
+    windows = [20, 50, 100]
+    support_levels = {}
+    resistance_levels = {}
 
-    plt.figure(figsize=(12, 6))
-    plt.plot(full_data["Close"], label="Close", color="#000000", linewidth=2.2)
+    for w in windows:
+        support_levels[f"Support_{w}d"] = full_data["Low"].rolling(w).min().iloc[-1]
+        resistance_levels[f"Resistance_{w}d"] = full_data["High"].rolling(w).max().iloc[-1]
 
-    if show_sr:
-        windows = [20, 50, 100]
-        support_colors = ["#F59E0B", "#EA580C", "#B45309"]
-        resistance_colors = ["#92400E", "#78350F", "#1C1917"]
-
-        for i, w in enumerate(windows):
-            support = full_data["Low"].rolling(w).min()
-            resistance = full_data["High"].rolling(w).max()
-
-            plt.plot(support, "--", color=support_colors[i], linewidth=1.6, label=f"Support {w}d")
-            plt.plot(resistance, ":", color=resistance_colors[i], linewidth=1.9, label=f"Resistance {w}d")
-
-    plt.legend()
-    plt.xlabel("Date")
-    plt.ylabel("Price")
-    st.pyplot(plt)
-    plt.close()
-
+    # Create a DataFrame for display
+    sr_df = pd.DataFrame([support_levels, resistance_levels], index=["Support", "Resistance"])
+    st.table(sr_df)
+    
     # ---------------- Moving Averages ----------------
     st.subheader("📊 Moving Averages (50 & 200 Days)")
     st.line_chart(full_data[["Close", "SMA_50", "SMA_200"]])
@@ -216,5 +207,6 @@ if st.session_state.analyzed:
     
     # --- Show analysis complete at the very bottom ---
     st.success("✅ Analysis complete!")
+
 
 
