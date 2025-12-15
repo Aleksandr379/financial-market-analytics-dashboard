@@ -124,7 +124,6 @@ def flatten_columns(df):
 # ---------------- Analyze Button ----------------
 if st.button("🔍 Analyze"):
     st.session_state.analyzed = True
-    st.experimental_rerun()
 
 # ---------------- Analysis ----------------
 if st.session_state.analyzed:
@@ -192,7 +191,6 @@ if st.session_state.analyzed:
         else:
             st.info("ℹ️ RSI in neutral range — no immediate signal")
 
-     # ---------------- Fundamentals (Stocks/ETFs Only) ----------------
     if category == "Stocks":
         st.subheader(f"📊 {symbol} Fundamentals")
         try:
@@ -204,7 +202,7 @@ if st.session_state.analyzed:
             eps = ticker_info.get("trailingEps", "N/A")
             dividend_yield = ticker_info.get("dividendYield", "N/A")
 
-           # Display metrics safely
+            # Display metrics safely
             st.write(f"**Market Cap:** {market_cap:,}" if pd.notna(market_cap) else "**Market Cap:** N/A")
             st.write(f"**P/E Ratio:** {pe_ratio}" if pd.notna(pe_ratio) else "**P/E Ratio:** N/A")
             st.write(f"**P/B Ratio:** {pb_ratio}" if pd.notna(pb_ratio) else "**P/B Ratio:** N/A")
@@ -216,5 +214,7 @@ if st.session_state.analyzed:
         st.info("ℹ️ Fundamental metrics are only available for stocks.")
 
     
-st.success("✅ Analysis complete!")
+    # --- Show analysis complete at the very bottom ---
+    st.success("✅ Analysis complete!")
+
 
